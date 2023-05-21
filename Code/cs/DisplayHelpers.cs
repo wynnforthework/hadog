@@ -17,8 +17,7 @@ namespace SDKTemplate
         {
             if (IsSigDefinedUuid(service.Uuid))
             {
-                GattNativeServiceUuid serviceName;
-                if (Enum.TryParse(Utilities.ConvertUuidToShortId(service.Uuid).ToString(), out serviceName))
+                if (Enum.TryParse(Utilities.ConvertUuidToShortId(service.Uuid).ToString(), out GattNativeServiceUuid serviceName))
                 {
                     return serviceName.ToString();
                 }
@@ -30,9 +29,8 @@ namespace SDKTemplate
         {
             if (IsSigDefinedUuid(characteristic.Uuid))
             {
-                GattNativeCharacteristicUuid characteristicName;
                 if (Enum.TryParse(Utilities.ConvertUuidToShortId(characteristic.Uuid).ToString(),
-                    out characteristicName))
+                    out GattNativeCharacteristicUuid characteristicName))
                 {
                     return characteristicName.ToString();
                 }
@@ -88,7 +86,8 @@ namespace SDKTemplate
 
         public string Id => DeviceInformation.Id;
         public string Name => DeviceInformation.Name;
-        public bool IsPaired => DeviceInformation.Pairing.IsPaired;
+        //public bool IsPaired => DeviceInformation.Pairing.IsPaired;
+        public bool IsPaired { get; set; } = false;
         public bool IsConnected => (bool?)DeviceInformation.Properties["System.Devices.Aep.IsConnected"] == true;
         //public bool IsConnectable => (bool?)DeviceInformation.Properties["System.Devices.Aep.Bluetooth.Le.IsConnectable"] == true;
         public bool IsConnectable => (bool?)DeviceInformation.Properties["System.Devices.Aep.IsPresent"] == true;

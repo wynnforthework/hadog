@@ -15,11 +15,12 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Linq;
 using System.Security.Authentication;
-using Windows.Devices.Bluetooth;
+using System.Text;
+using System.Threading.Tasks;
 using Windows.Devices.Enumeration;
 using Windows.UI.Core;
-using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
 
@@ -30,23 +31,31 @@ namespace SDKTemplate
     // This device will be used by future scenarios.
     // For more information about device discovery and pairing, including examples of
     // customizing the pairing process, see the DeviceEnumerationAndPairing sample.
-    public sealed partial class Scenario1_Discovery : Page
+    public sealed partial class Page_Discovery : Page
     {
-        private MainPage rootPage = MainPage.Current;
+        private MainPage RootPage { get; } = MainPage.Current;
 
-        private ObservableCollection<BluetoothLEDeviceDisplay> KnownDevices = new ObservableCollection<BluetoothLEDeviceDisplay>();
-        private List<DeviceInformation> UnknownDevices = new List<DeviceInformation>();
+        private ObservableCollection<BluetoothLEDeviceDisplay> KnownDevices { get; } = new ObservableCollection<BluetoothLEDeviceDisplay>();
+        private List<DeviceInformation> UnknownDevices { get; } = new List<DeviceInformation>();
 
         private DeviceWatcher deviceWatcher;
 
-        private List<string> registerDevicesIds = new List<string>();
+        private ObservableCollection<DeviceEntity> RegisterDevices { get; } = new ObservableCollection<DeviceEntity>();
 
         private IMqttClient mqttClient;
 
+        private AppDataHelper dataHelper;
+        private const string KEY_Config = "config.txt";
+
         #region UI Code
-        public Scenario1_Discovery()
+        public Page_Discovery()
         {
             InitializeComponent();
+        }
+
+        protected override void OnNavigatedTo(NavigationEventArgs e)
+        {
+            this.LoadConfig();
         }
 
         protected override void OnNavigatedFrom(NavigationEventArgs e)
@@ -54,26 +63,54 @@ namespace SDKTemplate
             StopBleDeviceWatcher();
 
             // Save the selected device's ID for use in other scenarios.
-            var bleDeviceDisplay = ResultsListView.SelectedItem as BluetoothLEDeviceDisplay;
-            if (bleDeviceDisplay != null)
+            if (ResultsListView.SelectedItem is BluetoothLEDeviceDisplay bleDeviceDisplay)
             {
-                rootPage.SelectedBleDeviceId = bleDeviceDisplay.Id;
-                rootPage.SelectedBleDeviceName = bleDeviceDisplay.Name;
+                RootPage.SelectedBleDeviceId = bleDeviceDisplay.Id;
+                RootPage.SelectedBleDeviceName = bleDeviceDisplay.Name;
+            }
+
+        }
+
+        private async void LoadConfig()
+        {
+            dataHelper = new AppDataHelper();
+            var devices = await dataHelper.ReadTimestamp(KEY_Config);
+            if(devices!=null)
+            {
+                foreach (var device in devices)
+                {
+                    RegisterDevices.Add(new DeviceEntity(device));
+                }
             }
         }
+
+        private void SaveConfig()
+        {
+            if(RegisterDevices.Count>0)
+            {
+                StringBuilder sb = new StringBuilder();
+                foreach (var device in RegisterDevices)
+                {
+                    sb.Append(device.ToString());
+                    sb.Append("\n");
+                }
+                dataHelper.WriteTimestamp(KEY_Config, sb.ToString());
+            }
+        }
+
         private void EnumerateButton_Click()
         {
             if (deviceWatcher == null)
             {
                 StartBleDeviceWatcher();
                 EnumerateButton.Content = "停止扫描";
-                rootPage.NotifyUser($"Device watcher started.", NotifyType.StatusMessage);
+                RootPage.NotifyUser($"Device watcher started.", NotifyType.StatusMessage);
             }
             else
             {
                 StopBleDeviceWatcher();
                 EnumerateButton.Content = "开始扫描";
-                rootPage.NotifyUser($"Device watcher stopped.", NotifyType.StatusMessage);
+                RootPage.NotifyUser($"Device watcher stopped.", NotifyType.StatusMessage);
             }
         }
 
@@ -87,7 +124,7 @@ namespace SDKTemplate
         /// Starts a device watcher that looks for all nearby Bluetooth devices (paired or unpaired). 
         /// Attaches event handlers to populate the device collection.
         /// </summary>
-        private async void StartBleDeviceWatcher()
+        private void StartBleDeviceWatcher()
         {
             // Additional properties we would like about the device.
             // Property strings are documented here https://msdn.microsoft.com/en-us/library/windows/desktop/ff521659(v=vs.85).aspx
@@ -177,17 +214,18 @@ namespace SDKTemplate
                     // Protect against race condition if the task runs after the app stopped the deviceWatcher.
                     if (sender == deviceWatcher)
                     {
-                        if(registerDevicesIds.Contains(deviceInfo.Id))
-                        {
-                            SendTopic(TopicEnum.Test);
-                        }
+                        this.SendTopic(TopicEnum.GetHome, deviceInfo.Id);
+                        
                         // Make sure device isn't already present in the list.
                         if (FindBluetoothLEDeviceDisplay(deviceInfo.Id) == null)
                         {
                             if (deviceInfo.Name != string.Empty)
                             {
                                 // If device has a friendly name display it immediately.
-                                KnownDevices.Add(new BluetoothLEDeviceDisplay(deviceInfo));
+                                var dd = new BluetoothLEDeviceDisplay(deviceInfo);
+                                var rd = RegisterDevices.FirstOrDefault((d) => d.Id.Equals(deviceInfo.Id));
+                                dd.IsPaired = rd != null;
+                                KnownDevices.Add(dd);
                             }
                             else
                             {
@@ -249,10 +287,8 @@ namespace SDKTemplate
                     // Protect against race condition if the task runs after the app stopped the deviceWatcher.
                     if (sender == deviceWatcher)
                     {
-                        if (registerDevicesIds.Contains(deviceInfoUpdate.Id))
-                        {
-                            SendTopic(TopicEnum.Test);
-                        }
+                        this.SendTopic(TopicEnum.LeaveHome, deviceInfoUpdate.Id);
+
                         // Find the corresponding DeviceInformation in the collection and remove it.
                         BluetoothLEDeviceDisplay bleDeviceDisplay = FindBluetoothLEDeviceDisplay(deviceInfoUpdate.Id);
                         if (bleDeviceDisplay != null)
@@ -278,7 +314,7 @@ namespace SDKTemplate
                 // Protect against race condition if the task runs after the app stopped the deviceWatcher.
                 if (sender == deviceWatcher)
                 {
-                    rootPage.NotifyUser($"{KnownDevices.Count} devices found. Enumeration completed.",
+                    RootPage.NotifyUser($"{KnownDevices.Count} devices found. Enumeration completed.",
                         NotifyType.StatusMessage);
                 }
             });
@@ -292,7 +328,7 @@ namespace SDKTemplate
                 // Protect against race condition if the task runs after the app stopped the deviceWatcher.
                 if (sender == deviceWatcher)
                 {
-                    rootPage.NotifyUser($"No longer watching for devices.",
+                    RootPage.NotifyUser($"No longer watching for devices.",
                             sender.Status == DeviceWatcherStatus.Aborted ? NotifyType.ErrorMessage : NotifyType.StatusMessage);
                 }
             });
@@ -301,36 +337,12 @@ namespace SDKTemplate
 
         #region Pairing
 
-        private bool isBusy = false;
-
-        private async void PairButton_Click()
+        private void PairButton_Click()
         {
-            // // Do not allow a new Pair operation to start if an existing one is in progress.
-            // if (isBusy)
-            // {
-            //     return;
-            // }
-
-            // isBusy = true;
-
-            // rootPage.NotifyUser("Pairing started. Please wait...", NotifyType.StatusMessage);
-
-            // // For more information about device pairing, including examples of
-            // // customizing the pairing process, see the DeviceEnumerationAndPairing sample.
-
-            // // Capture the current selected item in case the user changes it while we are pairing.
             var bleDeviceDisplay = ResultsListView.SelectedItem as BluetoothLEDeviceDisplay;
-
-            // // BT_Code: Pair the currently selected device.
-            // DevicePairingResult result = await bleDeviceDisplay.DeviceInformation.Pairing.PairAsync();
-            // rootPage.NotifyUser($"Pairing result = {result.Status}",
-            //     result.Status == DevicePairingResultStatus.Paired || result.Status == DevicePairingResultStatus.AlreadyPaired
-            //         ? NotifyType.StatusMessage
-            //         : NotifyType.ErrorMessage);
-
-            // isBusy = false;
-
-            registerDevicesIds.Add(bleDeviceDisplay.Id);
+            bleDeviceDisplay.IsPaired = true;
+            RegisterDevices.Add(new DeviceEntity(bleDeviceDisplay.Id,bleDeviceDisplay.Name));
+            this.SaveConfig();
         }
 
         #endregion
@@ -343,8 +355,9 @@ namespace SDKTemplate
             GetHome
         }
 
-        private async void SendTopic(TopicEnum @enum)
+        private async void SendTopic(TopicEnum @enum,string id)
         {
+            bool flag = false;
             string topic = "";
             switch(@enum)
             {
@@ -352,17 +365,33 @@ namespace SDKTemplate
                     topic = "home/small/light";
                 break;
                 case TopicEnum.LeaveHome:
-                    topic = "home/small/leavehome";
+                    {
+                        topic = "home/small/leavehome";
+                        var device = RegisterDevices.FirstOrDefault((d) => d.Id.Equals(id));
+                        if(device!=null)
+                        {
+                            device.IsAtHome = false;
+                        }
+                        var atHome = RegisterDevices.FirstOrDefault((d) => d.IsAtHome);
+                        flag = atHome == null && device != null;
+                    }
                     break;
                 case TopicEnum.GetHome:
-                    topic = "home/small/gethome";
+                    {
+                        topic = "home/small/gethome";
+                        var atHome = RegisterDevices.FirstOrDefault((d) => d.IsAtHome);
+                        var device = RegisterDevices.FirstOrDefault((d) => d.Id.Equals(id));
+                        flag = atHome == null && device != null;
+                        if (device != null)
+                        {
+                            device.IsAtHome = true;
+                        }
+                    }
                     break;
             }
-
-            
-            try
+            if (flag)
             {
-                if(mqttClient==null || !mqttClient.IsConnected)
+                if (mqttClient == null || !mqttClient.IsConnected)
                 {
                     var options = new MqttClientOptionsBuilder()
                         .WithClientId("回家/离家判断")
@@ -375,21 +404,48 @@ namespace SDKTemplate
                         })
                         .WithCleanSession()
                         .Build();
-                    var factory = new MqttFactory();
-                    mqttClient = factory.CreateMqttClient();
-                    await mqttClient.ConnectAsync(options);
-                }
-                
-                await mqttClient.PublishStringAsync(topic).ConfigureAwait(false);
-                rootPage.NotifyUser($"Task Completed!", NotifyType.StatusMessage);
+                    for (var i = 0; i < 10; i++)
+                    {
+                        var isConnected = false;
+                        try
+                        {
+                            var factory = new MqttFactory();
+                            mqttClient = factory.CreateMqttClient();
+                            await mqttClient.ConnectAsync(options);
+                            isConnected = mqttClient.IsConnected;
+                        }
+                        catch (Exception e)
+                        {
+                            var log = "";
+                            if(i==0)
+                            {
+                                log = $"MQTT连接失败:{e.Message}，等待重连!";
+                            }
+                            else if (i==10)
+                            {
+                                log = $"MQTT重连失败";
+                            }
+                            else
+                            {
+                                log = $"等待MQTT第{i}次重连";
+                            }
+                            Debug.WriteLine(log);
+                            RootPage.NotifyUser(log, NotifyType.StatusMessage);
 
+                            //等待10秒
+                            await Task.Delay(10 * 1000);
+                        }
+                        if (isConnected) break;
+                       
+                    }
+                   
+                    
+                }
+
+                await mqttClient.PublishStringAsync(topic).ConfigureAwait(false);
+                RootPage.NotifyUser($"Send Topic:{topic}", NotifyType.StatusMessage);
             }
-            catch (Exception e)
-            {
-                var log = $"Task error:{e.Message}!";
-                Debug.WriteLine(log);
-                rootPage.NotifyUser(log, NotifyType.StatusMessage);
-            }
+            
         }
         #endregion
     }

@@ -73,7 +73,7 @@ namespace SDKTemplate
             NotifyUser(String.Empty, NotifyType.StatusMessage);
 
             ListBox scenarioListBox = sender as ListBox;
-            Scenario s = scenarioListBox.SelectedItem as Scenario;
+            var s = scenarioListBox.SelectedItem as Scenario;
             if (s != null)
             {
                 ScenarioFrame.Navigate(s.ClassType);
@@ -152,6 +152,11 @@ namespace SDKTemplate
         private void Button_Click(object sender, RoutedEventArgs e)
         {
             Splitter.IsPaneOpen = !Splitter.IsPaneOpen;
+        }
+
+        private void Header_SelectionChanged(object sender, RoutedEventArgs e)
+        {
+
         }
     }
     public enum NotifyType

@@ -19,13 +19,11 @@ namespace SDKTemplate
 {
     public partial class MainPage : Page
     {
-        public const string FEATURE_NAME = "Bluetooth Low Energy C# Sample";
-
-        List<Scenario> scenarios = new List<Scenario>
+        public const string FEATURE_NAME = "蓝牙设备管理";
+        List<Scenario> scenarios { get; } = new List<Scenario>
         {
-            new Scenario() { Title="Client: Discover servers", ClassType=typeof(Scenario1_Discovery) },
-            new Scenario() { Title="Client: Connect to a server", ClassType=typeof(Scenario2_Client) },
-            new Scenario() { Title="Server: Publish foreground", ClassType=typeof(Scenario3_ServerForeground) },
+            new Scenario() { Title="发现附近的设备", ClassType=typeof(Page_Discovery) },
+            new Scenario() { Title="已注册的设备", ClassType=typeof(Page_Register) },
         };
 
         public string SelectedBleDeviceId;

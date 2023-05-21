@@ -11,7 +11,7 @@
 //*********************************************************
 -->
 <Page
-    x:Class="SDKTemplate.Scenario1_Discovery"
+    x:Class="SDKTemplate.Page_Register"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -19,19 +19,15 @@
     xmlns:local="using:SDKTemplate"
     mc:Ignorable="d">
     <Page.Resources>
-        <DataTemplate x:Key="ResultsListViewTemplate" x:DataType="local:BluetoothLEDeviceDisplay">
+        <DataTemplate x:Key="RegisterListViewTemplate" x:DataType="local:DeviceEntity">
             <Grid Margin="5">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*" MinWidth="100"/>
                 </Grid.ColumnDefinitions>
-                <Image Source="{x:Bind GlyphBitmapImage, Mode=OneWay}" Stretch="UniformToFill" Grid.Column="0" Height="40" Width="40" Margin="5" VerticalAlignment="Top"/>
                 <StackPanel Grid.Column="1" Margin="5">
                     <TextBlock Style="{StaticResource ListItemTextStyle}" TextWrapping="WrapWholeWords">
                         Name: <Run Text="{x:Bind Name, Mode=OneWay}" FontWeight="Bold"/>
-                    </TextBlock>
-                    <TextBlock>
-                        IsPaired: <Run Text="{x:Bind IsPaired, Mode=OneWay}"/>, IsConnected: <Run Text="{x:Bind IsConnected, Mode=OneWay}"/>, IsConnectable:<Run Text="{x:Bind IsConnectable, Mode=OneWay}"/>
                     </TextBlock>
                 </StackPanel>
             </Grid>
@@ -43,24 +39,16 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <StackPanel Margin="0,0,0,10">
-            <TextBlock Text="Description:" Style="{StaticResource SampleHeaderTextStyle}"/>
-            <TextBlock Style="{StaticResource ScenarioDescriptionTextStyle}" Text="Discover GATT servers"/>
-            <TextBlock TextWrapping="Wrap">
-                Enumerate nearby Bluetooth Low Energy devices,
-                then select and pair a device, so that it can be used
-                in the next scenario.
-            </TextBlock>
+            <TextBlock Text="ÒÑ×¢²áµÄÀ¶ÑÀÉè±¸" Style="{StaticResource SampleHeaderTextStyle}"/>
             <StackPanel Margin="0,10,0,0" Orientation="Horizontal">
-                <Button x:Name="EnumerateButton" Content="å¼€å§‹æ‰«æ" Click="{x:Bind EnumerateButton_Click}" Margin="0,0,10,0"/>
-                <Button x:Name="PairButton" Content="Pair" Click="{x:Bind PairButton_Click}" Margin="0,0,10,0"
-                    IsEnabled="{x:Bind Not(ResultsListView.SelectedItem.(local:BluetoothLEDeviceDisplay.IsPaired)), FallbackValue=False, Mode=OneWay}" />
+                <Button x:Name="PairButton" Content="È¡Ïû×¢²á" Click="{x:Bind PairButton_Click}" Margin="0,0,10,0" />
             </StackPanel>
         </StackPanel>
         <ScrollViewer VerticalScrollMode="Auto" VerticalScrollBarVisibility="Auto" Grid.Row="1" Margin="0,10,0,0"
                       BorderBrush="AntiqueWhite" BorderThickness="1">
-            <ListView x:Name="ResultsListView"
-                      ItemTemplate="{StaticResource ResultsListViewTemplate}"
-                      ItemsSource="{x:Bind KnownDevices, Mode=OneWay}"/>
+            <ListView x:Name="RegisterListView"
+                      ItemTemplate="{StaticResource RegisterListViewTemplate}"
+                      ItemsSource="{x:Bind RegisterDevices, Mode=OneWay}"/>
         </ScrollViewer>
     </Grid>
 </Page>

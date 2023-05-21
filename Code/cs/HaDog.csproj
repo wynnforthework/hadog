@@ -12,7 +12,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>SDKTemplate</RootNamespace>
     <AssemblyName>BluetoothLEUniversal</AssemblyName>
-    <DefaultLanguage>en-US</DefaultLanguage>
+    <DefaultLanguage>zh-cn</DefaultLanguage>
     <TargetPlatformIdentifier>UAP</TargetPlatformIdentifier>
     <TargetPlatformVersion>10.0.22000.0</TargetPlatformVersion>
     <TargetPlatformMinVersion>10.0.22000.0</TargetPlatformMinVersion>
@@ -102,19 +102,14 @@
     <Compile Include="$(SharedContentDir)\cs\AssemblyInfo.cs">
       <Link>Properties\AssemblyInfo.cs</Link>
     </Compile>
+    <Compile Include="AppDataHelper.cs" />
     <Compile Include="Constants.cs" />
+    <Compile Include="DeviceEntity.cs" />
     <Compile Include="DisplayHelpers.cs" />
     <Compile Include="PresentationFormats.cs" />
     <Compile Include="SampleConfiguration.cs" />
-    <Compile Include="Scenario1_Discovery.xaml.cs">
-      <DependentUpon>Scenario1_Discovery.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Scenario3_ServerForeground.xaml.cs">
-      <DependentUpon>Scenario3_ServerForeground.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Scenario2_Client.xaml.cs">
-      <DependentUpon>Scenario2_Client.xaml</DependentUpon>
-    </Compile>
+    <Compile Include="Page_Discovery.xaml.cs" />
+    <Compile Include="Page_Register.xaml.cs" />
   </ItemGroup>
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest">
@@ -132,23 +127,16 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="..\shared\Scenario1_Discovery.xaml">
-      <Link>Scenario1_Discovery.xaml</Link>
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
     <Page Include="$(SharedContentDir)\xaml\Styles.xaml">
       <Link>Styles\Styles.xaml</Link>
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="..\shared\Scenario3_ServerForeground.xaml">
-      <Link>Scenario3_ServerForeground.xaml</Link>
-      <Generator>MSBuild:Compile</Generator>
+    <Page Include="Page_Discovery.xaml">
       <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="..\shared\Scenario2_Client.xaml">
-      <Link>Scenario2_Client.xaml</Link>
+    <Page Include="Page_Register.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
@@ -163,7 +151,9 @@
     <Content Include="$(SharedContentDir)\media\smalltile-sdk.png">
       <Link>Assets\smallTile-sdk.png</Link>
     </Content>
-    <Content Include="$(SharedContentDir)\media\splash-sdk.png">
+    <Content Include="Assets\Wide310x150Logo.scale-200.png" />
+    <Content Include="Assets\Wide310x150Logo.scale-400.png" />
+    <Content Include="D:\GitProjects\hadog\Code\SharedContent\media\splash-sdk.png">
       <Link>Assets\splash-sdk.png</Link>
     </Content>
     <Content Include="$(SharedContentDir)\media\squaretile-sdk.png">
@@ -178,6 +168,7 @@
     <Content Include="$(SharedContentDir)\media\windows-sdk.png">
       <Link>Assets\windows-sdk.png</Link>
     </Content>
+    <Content Include="splash-sdk.scale-200.png" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NETCore.UniversalWindowsPlatform">
