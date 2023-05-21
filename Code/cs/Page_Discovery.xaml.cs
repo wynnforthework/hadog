@@ -42,7 +42,6 @@ namespace SDKTemplate
 
         private ObservableCollection<DeviceEntity> RegisterDevices { get; } = new ObservableCollection<DeviceEntity>();
 
-        private IMqttClient mqttClient;
 
         private AppDataHelper dataHelper;
         private const string KEY_Config = "config.txt";
@@ -51,6 +50,7 @@ namespace SDKTemplate
         public Page_Discovery()
         {
             InitializeComponent();
+            this.CreateMqttClient();
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -69,33 +69,6 @@ namespace SDKTemplate
                 RootPage.SelectedBleDeviceName = bleDeviceDisplay.Name;
             }
 
-        }
-
-        private async void LoadConfig()
-        {
-            dataHelper = new AppDataHelper();
-            var devices = await dataHelper.ReadTimestamp(KEY_Config);
-            if(devices!=null)
-            {
-                foreach (var device in devices)
-                {
-                    RegisterDevices.Add(new DeviceEntity(device));
-                }
-            }
-        }
-
-        private void SaveConfig()
-        {
-            if(RegisterDevices.Count>0)
-            {
-                StringBuilder sb = new StringBuilder();
-                foreach (var device in RegisterDevices)
-                {
-                    sb.Append(device.ToString());
-                    sb.Append("\n");
-                }
-                dataHelper.WriteTimestamp(KEY_Config, sb.ToString());
-            }
         }
 
         private void EnumerateButton_Click()
@@ -214,7 +187,7 @@ namespace SDKTemplate
                     // Protect against race condition if the task runs after the app stopped the deviceWatcher.
                     if (sender == deviceWatcher)
                     {
-                        this.SendTopic(TopicEnum.GetHome, deviceInfo.Id);
+                        this.CheckHomeState(TopicEnum.GetHome, deviceInfo.Id);
                         
                         // Make sure device isn't already present in the list.
                         if (FindBluetoothLEDeviceDisplay(deviceInfo.Id) == null)
@@ -287,7 +260,7 @@ namespace SDKTemplate
                     // Protect against race condition if the task runs after the app stopped the deviceWatcher.
                     if (sender == deviceWatcher)
                     {
-                        this.SendTopic(TopicEnum.LeaveHome, deviceInfoUpdate.Id);
+                        this.CheckHomeState(TopicEnum.LeaveHome, deviceInfoUpdate.Id);
 
                         // Find the corresponding DeviceInformation in the collection and remove it.
                         BluetoothLEDeviceDisplay bleDeviceDisplay = FindBluetoothLEDeviceDisplay(deviceInfoUpdate.Id);
@@ -348,52 +321,13 @@ namespace SDKTemplate
         #endregion
 
         #region MQTT
-        public enum TopicEnum
-        {
-            Test = 0,
-            LeaveHome,
-            GetHome
-        }
 
-        private async void SendTopic(TopicEnum @enum,string id)
+        private IMqttClient mqttClient;
+        private MqttClientOptions options;
+
+        private void CreateMqttClient()
         {
-            bool flag = false;
-            string topic = "";
-            switch(@enum)
-            {
-                case TopicEnum.Test:
-                    topic = "home/small/light";
-                break;
-                case TopicEnum.LeaveHome:
-                    {
-                        topic = "home/small/leavehome";
-                        var device = RegisterDevices.FirstOrDefault((d) => d.Id.Equals(id));
-                        if(device!=null)
-                        {
-                            device.IsAtHome = false;
-                        }
-                        var atHome = RegisterDevices.FirstOrDefault((d) => d.IsAtHome);
-                        flag = atHome == null && device != null;
-                    }
-                    break;
-                case TopicEnum.GetHome:
-                    {
-                        topic = "home/small/gethome";
-                        var atHome = RegisterDevices.FirstOrDefault((d) => d.IsAtHome);
-                        var device = RegisterDevices.FirstOrDefault((d) => d.Id.Equals(id));
-                        flag = atHome == null && device != null;
-                        if (device != null)
-                        {
-                            device.IsAtHome = true;
-                        }
-                    }
-                    break;
-            }
-            if (flag)
-            {
-                if (mqttClient == null || !mqttClient.IsConnected)
-                {
-                    var options = new MqttClientOptionsBuilder()
+            options = new MqttClientOptionsBuilder()
                         .WithClientId("回家/离家判断")
                         .WithTcpServer("192.168.31.111", 1883)
                         .WithCredentials("mqtt", "1111")
@@ -404,48 +338,321 @@ namespace SDKTemplate
                         })
                         .WithCleanSession()
                         .Build();
-                    for (var i = 0; i < 10; i++)
-                    {
-                        var isConnected = false;
-                        try
-                        {
-                            var factory = new MqttFactory();
-                            mqttClient = factory.CreateMqttClient();
-                            await mqttClient.ConnectAsync(options);
-                            isConnected = mqttClient.IsConnected;
-                        }
-                        catch (Exception e)
-                        {
-                            var log = "";
-                            if(i==0)
-                            {
-                                log = $"MQTT连接失败:{e.Message}，等待重连!";
-                            }
-                            else if (i==10)
-                            {
-                                log = $"MQTT重连失败";
-                            }
-                            else
-                            {
-                                log = $"等待MQTT第{i}次重连";
-                            }
-                            Debug.WriteLine(log);
-                            RootPage.NotifyUser(log, NotifyType.StatusMessage);
+            var factory = new MqttFactory();
+            mqttClient = factory.CreateMqttClient();
+        }
 
-                            //等待10秒
-                            await Task.Delay(10 * 1000);
+        public enum TopicEnum
+        {
+            Test = 0,
+            LeaveHome,
+            GetHome
+        }
+
+        private async void TopicTest()
+        {
+            if (!mqttClient.IsConnected)
+            {
+                await mqttClient.ConnectAsync(options);
+            }
+            var topic = "home/small/light";
+            await mqttClient.PublishStringAsync(topic).ConfigureAwait(false);
+            RootPage.NotifyUser($"Send Topic:{topic}", NotifyType.StatusMessage);
+        }
+
+        private List<TopicEnum> TopicList = new List<TopicEnum>();
+        private void CheckHomeState(TopicEnum @enum, string id)
+        {
+            var device = RegisterDevices.FirstOrDefault((d) => d.Id.Equals(id));
+            if (device != null)
+            {
+                bool flag = false;
+                switch (@enum)
+                {
+                    case TopicEnum.LeaveHome:
+                        {
+                            device.IsAtHome = false;
+                            var atHome = RegisterDevices.FirstOrDefault((d) => d.IsAtHome);
+                            flag = atHome == null;
                         }
-                        if (isConnected) break;
-                       
-                    }
-                   
-                    
+                        break;
+                    case TopicEnum.GetHome:
+                        {
+                            var atHome = RegisterDevices.FirstOrDefault((d) => d.IsAtHome);
+                            device.IsAtHome = true;
+                            flag = atHome == null;
+                        }
+                        break;
+                }
+                if (flag)
+                {
+                    this.TopicList.Add(@enum);
+                    this.DoNextTopic();
+                }
+            }
+        }
+
+        private bool IsBusy = false;
+        private async void DoNextTopic()
+        {
+            if(this.TopicList.Count>0)
+            {
+                this.SwitchStateMachine();
+
+                if (!this.IsBusy)
+                {
+                    this.IsBusy = true;
                 }
 
-                await mqttClient.PublishStringAsync(topic).ConfigureAwait(false);
-                RootPage.NotifyUser($"Send Topic:{topic}", NotifyType.StatusMessage);
+                var topic = this.TopicList[0];
+                this.TopicList.RemoveAt(0);
+                await this.SendTopic(topic);
+                this.ChangeStateMachine(StateMachineEnum.None);
+                this.IsBusy = false;
+                this.DoNextTopic();
             }
-            
+        }
+
+        private async Task SendTopic(TopicEnum @enum)
+        {
+            if(@enum == TopicEnum.LeaveHome)
+            {
+                //等待30秒
+                await Task.Delay(3 * 1000);
+            }
+
+            string topic = "";
+            switch(@enum)
+            {
+                case TopicEnum.LeaveHome:
+                    {
+                        topic = "home/small/leavehome";
+                    }
+                    break;
+                case TopicEnum.GetHome:
+                    {
+                        topic = "home/small/gethome";
+                    }
+                    break;
+            }
+            if (!mqttClient.IsConnected)
+            {
+
+                for (var i = 0; i < 10; i++)
+                {
+                    var isConnected = false;
+                    try
+                    {
+                        await mqttClient.ConnectAsync(options);
+                        isConnected = mqttClient.IsConnected;
+                    }
+                    catch (Exception e)
+                    {
+                        var log = "";
+                        if (i == 0)
+                        {
+                            log = $"MQTT连接失败:{e.Message}，等待重连!";
+                        }
+                        else if (i == 10)
+                        {
+                            log = $"MQTT重连失败";
+                        }
+                        else
+                        {
+                            log = $"等待MQTT第{i}次重连";
+                        }
+                        Debug.WriteLine(log);
+                        RootPage.NotifyUser(log, NotifyType.StatusMessage);
+
+                        //等待10秒
+                        await Task.Delay(10 * 1000);
+                    }
+                    if (isConnected)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            if (this.StateMachine == StateMachineEnum.None)
+            {
+                return;
+            }
+            Debug.WriteLine($"{topic}");
+
+            await mqttClient.PublishStringAsync(topic).ConfigureAwait(false);
+            RootPage.NotifyUser($"Send Topic:{topic}", NotifyType.StatusMessage);
+        }
+
+        #endregion
+
+        #region 状态机
+
+        public enum StateMachineEnum
+        {
+            None = 0,
+            WaitSendTopic,
+        }
+
+        private StateMachineEnum StateMachine = StateMachineEnum.None;
+        private void ChangeStateMachine(StateMachineEnum @enum)
+        {
+            this.StateMachine = @enum;
+        }
+        private void SwitchStateMachine()
+        {
+            Debug.WriteLine($"1:{this.StateMachine}");
+            switch(this.StateMachine)
+            {
+                case StateMachineEnum.None:
+
+                    this.StateMachine = StateMachineEnum.WaitSendTopic;
+                    break;
+                case StateMachineEnum.WaitSendTopic:
+                    this.StateMachine = StateMachineEnum.None;
+                    break;
+            }
+            Debug.WriteLine($"2:{this.StateMachine}");
+        }
+
+        #endregion
+
+        #region 配置
+        private async void LoadConfig()
+        {
+            dataHelper = new AppDataHelper();
+            var devices = await dataHelper.ReadTimestamp(KEY_Config);
+            if (devices != null)
+            {
+                foreach (var device in devices)
+                {
+                    RegisterDevices.Add(new DeviceEntity(device));
+                }
+            }
+        }
+
+        private void SaveConfig()
+        {
+            if (RegisterDevices.Count > 0)
+            {
+                StringBuilder sb = new StringBuilder();
+                foreach (var device in RegisterDevices)
+                {
+                    sb.Append(device.ToString());
+                    sb.Append("\n");
+                }
+                dataHelper.WriteTimestamp(KEY_Config, sb.ToString());
+            }
+        }
+
+        #endregion
+
+        #region 单元测试
+
+        /// <summary>
+        /// 正常回家
+        /// 结果:触发回家
+        /// </summary>
+        private void Test_0()
+        {
+            this.TopicList.Clear();
+            this.TopicList.Add(TopicEnum.GetHome);
+            this.DoNextTopic();
+        }
+
+        /// <summary>
+        /// 正常离家
+        /// 结果:触发离家
+        /// </summary>
+        private void Test_1()
+        {
+            this.TopicList.Clear();
+            this.TopicList.Add(TopicEnum.LeaveHome);
+            this.DoNextTopic();
+
+        }
+
+        /// <summary>
+        /// 正常回家,等一段时间后
+        /// 正常离家
+        /// 结果:触发回家,触发离家
+        /// </summary>
+        private void Test_2()
+        {
+            this.TopicList.Clear();
+            this.TopicList.Add(TopicEnum.GetHome);
+            this.TopicList.Add(TopicEnum.LeaveHome);
+            this.DoNextTopic();
+        }
+
+        /// <summary>
+        /// 正常离家,等一段时间后
+        /// 正常回家
+        /// 结果:触发离家,触发回家
+        /// </summary>
+        private void Test_3()
+        {
+            this.TopicList.Clear();
+            this.TopicList.Add(TopicEnum.LeaveHome);
+            this.TopicList.Add(TopicEnum.GetHome);
+            this.DoNextTopic();
+        }
+
+        /// <summary>
+        /// 正常回家,等一段时间后
+        /// 正常离家,等一段时间后
+        /// 正常回家
+        /// 结果:触发回家,触发离家,触发回家
+        /// </summary>
+        private void Test_4()
+        {
+            this.TopicList.Clear();
+            this.TopicList.Add(TopicEnum.GetHome);
+            this.TopicList.Add(TopicEnum.LeaveHome);
+            this.TopicList.Add(TopicEnum.GetHome);
+            this.DoNextTopic();
+        }
+
+        /// <summary>
+        /// 正常回家
+        /// 短时间内离家
+        /// 结果:触发回家,触发离家
+        /// </summary>
+        private void Test_5()
+        {
+            this.TopicList.Clear();
+            this.TopicList.Add(TopicEnum.GetHome);
+            this.DoNextTopic();
+            this.TopicList.Add(TopicEnum.LeaveHome);
+            this.DoNextTopic();
+        }
+        /// <summary>
+        /// 正常离家
+        /// 短时间内回家
+        /// 结果:什么都不做
+        /// </summary>
+        private void Test_6()
+        {
+            this.TopicList.Clear();
+            this.TopicList.Add(TopicEnum.LeaveHome);
+            this.DoNextTopic();
+            this.TopicList.Add(TopicEnum.GetHome);
+            this.DoNextTopic();
+        }
+        /// <summary>
+        /// 正常回家,等一段时间后
+        /// 短时间内离家-回家
+        /// 结果:只触发1次回家
+        /// </summary>
+        private void Test_7()
+        {
+            this.TopicList.Clear();
+            this.TopicList.Add(TopicEnum.GetHome);
+            this.DoNextTopic();
+            this.TopicList.Add(TopicEnum.LeaveHome);
+            this.DoNextTopic();
+            this.TopicList.Add(TopicEnum.GetHome);
+            this.DoNextTopic();
         }
         #endregion
     }
