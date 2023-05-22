@@ -344,8 +344,7 @@ namespace SDKTemplate
 
         public enum TopicEnum
         {
-            Test = 0,
-            LeaveHome,
+            LeaveHome = 0,
             GetHome
         }
 
@@ -418,7 +417,7 @@ namespace SDKTemplate
             if(@enum == TopicEnum.LeaveHome)
             {
                 //等待30秒
-                await Task.Delay(3 * 1000);
+                await Task.Delay(30 * 1000);
             }
 
             string topic = "";
