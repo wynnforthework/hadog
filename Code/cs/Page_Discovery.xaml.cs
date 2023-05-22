@@ -182,7 +182,7 @@ namespace SDKTemplate
             {
                 lock (this)
                 {
-                    Debug.WriteLine(String.Format("Added {0}{1}", deviceInfo.Id, deviceInfo.Name));
+                    //Debug.WriteLine(String.Format("Added {0}{1}", deviceInfo.Id, deviceInfo.Name));
 
                     // Protect against race condition if the task runs after the app stopped the deviceWatcher.
                     if (sender == deviceWatcher)
@@ -219,7 +219,7 @@ namespace SDKTemplate
             {
                 lock (this)
                 {
-                    Debug.WriteLine(String.Format("Updated {0}{1}", deviceInfoUpdate.Id, ""));
+                    //Debug.WriteLine(String.Format("Updated {0}{1}", deviceInfoUpdate.Id, ""));
 
                     // Protect against race condition if the task runs after the app stopped the deviceWatcher.
                     if (sender == deviceWatcher)
@@ -255,7 +255,7 @@ namespace SDKTemplate
             {
                 lock (this)
                 {
-                    Debug.WriteLine(String.Format("Removed {0}{1}", deviceInfoUpdate.Id,""));
+                    //Debug.WriteLine(String.Format("Removed {0}{1}", deviceInfoUpdate.Id,""));
 
                     // Protect against race condition if the task runs after the app stopped the deviceWatcher.
                     if (sender == deviceWatcher)
@@ -416,8 +416,8 @@ namespace SDKTemplate
         {
             if(@enum == TopicEnum.LeaveHome)
             {
-                //等待30秒
-                await Task.Delay(30 * 1000);
+                //离家延迟触发
+                await Task.Delay(60 * 1000);
             }
 
             string topic = "";
@@ -460,7 +460,7 @@ namespace SDKTemplate
                         {
                             log = $"等待MQTT第{i}次重连";
                         }
-                        Debug.WriteLine(log);
+                        WriteLine(log);
                         RootPage.NotifyUser(log, NotifyType.StatusMessage);
 
                         //等待10秒
@@ -477,7 +477,7 @@ namespace SDKTemplate
             {
                 return;
             }
-            Debug.WriteLine($"{topic}");
+            WriteLine($"Send Topic:{topic}");
 
             await mqttClient.PublishStringAsync(topic).ConfigureAwait(false);
             RootPage.NotifyUser($"Send Topic:{topic}", NotifyType.StatusMessage);
@@ -500,7 +500,7 @@ namespace SDKTemplate
         }
         private void SwitchStateMachine()
         {
-            Debug.WriteLine($"1:{this.StateMachine}");
+            WriteLine($"1:{this.StateMachine}");
             switch(this.StateMachine)
             {
                 case StateMachineEnum.None:
@@ -511,7 +511,7 @@ namespace SDKTemplate
                     this.StateMachine = StateMachineEnum.None;
                     break;
             }
-            Debug.WriteLine($"2:{this.StateMachine}");
+            WriteLine($"2:{this.StateMachine}");
         }
 
         #endregion
@@ -654,5 +654,10 @@ namespace SDKTemplate
             this.DoNextTopic();
         }
         #endregion
+
+        private void WriteLine(string msg)
+        {
+            Debug.WriteLine($"{DateTime.Now.ToString("F")} {msg}");
+        }
     }
 }
