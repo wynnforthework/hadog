@@ -39,9 +39,9 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <StackPanel Margin="0,0,0,10">
-            <TextBlock Text="ÒÑ×¢²áµÄÀ¶ÑÀÉè±¸" Style="{StaticResource SampleHeaderTextStyle}"/>
+            <TextBlock Text="å·²æ³¨å†Œçš„è“ç‰™è®¾å¤‡" Style="{StaticResource SampleHeaderTextStyle}"/>
             <StackPanel Margin="0,10,0,0" Orientation="Horizontal">
-                <Button x:Name="PairButton" Content="È¡Ïû×¢²á" Click="{x:Bind PairButton_Click}" Margin="0,0,10,0" />
+                <Button x:Name="PairButton" Content="å–æ¶ˆæ³¨å†Œ" Click="{x:Bind PairButton_Click}" Margin="0,0,10,0" />
             </StackPanel>
         </StackPanel>
         <ScrollViewer VerticalScrollMode="Auto" VerticalScrollBarVisibility="Auto" Grid.Row="1" Margin="0,10,0,0"
