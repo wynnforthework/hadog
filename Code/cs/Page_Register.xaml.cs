@@ -82,7 +82,7 @@ namespace SDKTemplate
         {
             var device = RegisterListView.SelectedItem as DeviceEntity;
             RegisterDevices.Remove(device);
-            RootPage.NotifyUser($"不再判断设备：{device.Name}是否在家"
+            RootPage.NotifyUser($"不再判断设备：{device.Name}是否在家",
                         NotifyType.StatusMessage);
             this.SaveConfig();
         }
